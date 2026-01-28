@@ -1,0 +1,12 @@
+.slide-design{
+    position: absolute;
+    left: 140%;
+    width: 600px;
+    height: 945px;
+    background:url(/images/plantimg.jpg);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    border-radius: 25px;
+    z-index: 999999;
+}

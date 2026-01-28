@@ -1,0 +1,189 @@
+.plant-overview {
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: 2.5rem;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-sage-200);
+  animation: slideInLeft 0.6s ease-out;
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.overview-header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 2px solid var(--color-sage-200);
+}
+
+.plant-icon-large {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, var(--color-sage-100), var(--color-sage-200));
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-sage-600);
+  flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.plant-icon-large svg {
+  width: 48px;
+  height: 48px;
+}
+
+.header-text {
+  flex: 1;
+}
+
+.plant-name {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--color-earth-900);
+  margin-bottom: 0.5rem;
+}
+
+.difficulty-badge {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.difficulty-badge.easy {
+  background: rgba(127, 169, 127, 0.15);
+  color: var(--color-sage-600);
+}
+
+.difficulty-badge.moderate {
+  background: rgba(212, 165, 116, 0.15);
+  color: var(--color-amber);
+}
+
+.difficulty-badge.hard {
+  background: rgba(196, 112, 79, 0.15);
+  color: var(--color-terracotta);
+}
+
+.overview-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.section-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-earth-900);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.section-title::before {
+  content: '';
+  width: 4px;
+  height: 1.5rem;
+  background: var(--color-sage-600);
+  border-radius: 2px;
+}
+
+.description-text {
+  font-size: 1.125rem;
+  line-height: 1.8;
+  color: var(--color-earth-700);
+}
+
+.conditions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.25rem;
+}
+
+.condition-card {
+  background: var(--color-sage-50);
+  border: 1px solid var(--color-sage-200);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: all 0.3s ease;
+}
+
+.condition-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+  border-color: var(--color-sage-400);
+}
+
+.condition-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.condition-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.condition-label {
+  font-size: 0.875rem;
+  color: var(--color-earth-600);
+  font-weight: 500;
+}
+
+.condition-value {
+  font-size: 1rem;
+  color: var(--color-earth-900);
+  font-weight: 600;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .plant-overview {
+    padding: 2rem 1.5rem;
+  }
+  
+  .overview-header {
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+  }
+  
+  .plant-name {
+    font-size: 1.75rem;
+  }
+  
+  .section-title {
+    font-size: 1.25rem;
+  }
+  
+  .description-text {
+    font-size: 1rem;
+  }
+  
+  .conditions-grid {
+    grid-template-columns: 1fr;
+  }
+}
