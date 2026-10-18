@@ -1,0 +1,432 @@
+# API Documentation
+
+## Base URL
+```
+http://localhost:8000
+```
+
+## Authentication
+Currently, no authentication is required (hackathon MVP). For production, implement API keys or OAuth.
+
+---
+
+## Endpoints
+
+### 1. Root Endpoint
+Get basic API information.
+
+**Endpoint:** `GET /`
+
+**Response:**
+```json
+{
+  "name": "Smart Plant Growth Assistant API",
+  "version": "1.0.0",
+  "status": "running",
+  "documentation": "/docs",
+  "health_check": "/health"
+}
+```
+
+---
+
+### 2. Health Check
+Check if the API is running properly.
+
+**Endpoint:** `GET /health`
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "message": "Smart Plant Growth Assistant API is running",
+  "version": "1.0.0"
+}
+```
+
+**Status Codes:**
+- `200`: API is healthy
+- `500`: API has issues
+
+---
+
+### 3. Generate Plant Care Guide
+Generate comprehensive AI-powered plant care guidance.
+
+**Endpoint:** `POST /generate-plant-guide`
+
+**Headers:**
+```
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "plant_name": "string (1-100 chars, required)",
+  "plant_type": "string (1-50 chars, required)",
+  "climate": "string (1-50 chars, required)",
+  "sunlight_hours": "integer (0-24, required)",
+  "soil_type": "string (1-50 chars, required)",
+  "watering_frequency": "string (1-50 chars, required)",
+  "experience_level": "string (1-50 chars, required)"
+}
+```
+
+**Example Request:**
+```json
+{
+  "plant_name": "Tomato",
+  "plant_type": "Vegetable",
+  "climate": "Temperate",
+  "sunlight_hours": 6,
+  "soil_type": "Loamy",
+  "watering_frequency": "Daily",
+  "experience_level": "Beginner"
+}
+```
+
+**Response Structure:**
+```json
+{
+  "success": true,
+  "plant_care_guidance": {
+    "plant_overview": {
+      "description": "string",
+      "ideal_conditions": {
+        "temperature": "string",
+        "humidity": "string",
+        "sunlight": "string",
+        "soil_ph": "string"
+      },
+      "benefits": ["string"],
+      "difficulty_level": "string"
+    },
+    "growth_stages": [
+      {
+        "stage_name": "string",
+        "duration": "string",
+        "care_instructions": "string",
+        "key_indicators": ["string"]
+      }
+    ],
+    "daily_care": {
+      "morning_routine": ["string"],
+      "afternoon_routine": ["string"],
+      "evening_routine": ["string"],
+      "weekly_tasks": ["string"]
+    },
+    "common_problems": [
+      {
+        "problem": "string",
+        "symptoms": ["string"],
+        "solution": "string",
+        "prevention": "string"
+      }
+    ],
+    "additional_tips": ["string"]
+  },
+  "visual_guide": {
+    "status": "string",
+    "file_url": "string",
+    "file_type": "string",
+    "message": "string"
+  },
+  "metadata": {
+    "timestamp": "ISO 8601 datetime",
+    "processing_time_seconds": "float",
+    "plant_name": "string",
+    "plant_type": "string",
+    "ai_model": "string",
+    "version": "string",
+    "personalized_insights": ["string"]
+  }
+}
+```
+
+**Status Codes:**
+- `200`: Successfully generated plant guide
+- `400`: Invalid request data
+- `422`: Validation error (field constraints violated)
+- `500`: Internal server error
+
+**Example Error Response:**
+```json
+{
+  "success": false,
+  "error": "Failed to generate plant care guide",
+  "detail": "Gemini API request failed: Connection timeout",
+  "timestamp": "2026-01-27T10:00:00Z"
+}
+```
+
+---
+
+## Data Models
+
+### PlantInputData
+Validates input data for plant care guidance generation.
+
+**Fields:**
+
+| Field | Type | Constraints | Description |
+|-------|------|-------------|-------------|
+| plant_name | string | 1-100 chars | Name of the plant |
+| plant_type | string | 1-50 chars | Type (Vegetable, Flower, Herb, etc.) |
+| climate | string | 1-50 chars | Climate zone |
+| sunlight_hours | integer | 0-24 | Daily sunlight hours |
+| soil_type | string | 1-50 chars | Soil type |
+| watering_frequency | string | 1-50 chars | How often to water |
+| experience_level | string | 1-50 chars | Beginner/Intermediate/Advanced |
+
+**Common Values:**
+
+- **plant_type**: Vegetable, Flower, Herb, Succulent, Tree, Shrub
+- **climate**: Tropical, Temperate, Mediterranean, Arid, Continental
+- **soil_type**: Loamy, Clay, Sandy, Silty, Chalky, Peaty
+- **watering_frequency**: Daily, Every 2 days, Weekly, Bi-weekly, Monthly
+- **experience_level**: Beginner, Intermediate, Advanced
+
+---
+
+## Rate Limiting
+Currently, no rate limiting is implemented (hackathon MVP). For production:
+- Recommended: 100 requests/hour per IP
+- Consider implementing request throttling for cost control
+
+---
+
+## Error Handling
+
+### Validation Errors (422)
+Occurs when input data violates field constraints.
+
+**Example:**
+```json
+{
+  "detail": [
+    {
+      "type": "int_greater_equal",
+      "loc": ["body", "sunlight_hours"],
+      "msg": "Input should be greater than or equal to 0",
+      "input": -5
+    }
+  ]
+}
+```
+
+### Server Errors (500)
+Occurs when internal processing fails.
+
+**Example:**
+```json
+{
+  "success": false,
+  "error": "Failed to generate plant care guide",
+  "detail": "Gemini API key not configured"
+}
+```
+
+---
+
+## Mock Mode
+When API keys are not configured, the system operates in mock mode:
+- Returns realistic example data
+- No external API calls
+- Useful for development and testing
+
+**Identifying Mock Responses:**
+- `visual_guide.status` will be "mock"
+- Response times will be < 1 second
+- Startup logs show "✗ Not Configured (using mock)"
+
+---
+
+## Interactive Documentation
+
+### Swagger UI
+Access interactive API documentation:
+```
+http://localhost:8000/docs
+```
+
+Features:
+- Try out endpoints directly in browser
+- View request/response schemas
+- See example payloads
+- Test with different data
+
+### ReDoc
+Alternative documentation interface:
+```
+http://localhost:8000/redoc
+```
+
+Features:
+- Clean, readable format
+- Detailed schema documentation
+- Easy navigation
+
+---
+
+## Integration Examples
+
+### JavaScript/Fetch
+```javascript
+const plantData = {
+  plant_name: "Basil",
+  plant_type: "Herb",
+  climate: "Mediterranean",
+  sunlight_hours: 6,
+  soil_type: "Well-draining",
+  watering_frequency: "Every 2 days",
+  experience_level: "Beginner"
+};
+
+fetch('http://localhost:8000/generate-plant-guide', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(plantData)
+})
+  .then(response => response.json())
+  .then(data => {
+    console.log('Plant Guide:', data);
+  })
+  .catch(error => {
+    console.error('Error:', error);
+  });
+```
+
+### Python/Requests
+```python
+import requests
+
+plant_data = {
+    "plant_name": "Basil",
+    "plant_type": "Herb",
+    "climate": "Mediterranean",
+    "sunlight_hours": 6,
+    "soil_type": "Well-draining",
+    "watering_frequency": "Every 2 days",
+    "experience_level": "Beginner"
+}
+
+response = requests.post(
+    'http://localhost:8000/generate-plant-guide',
+    json=plant_data
+)
+
+if response.status_code == 200:
+    data = response.json()
+    print(f"Success: {data['success']}")
+    print(f"Plant: {data['metadata']['plant_name']}")
+else:
+    print(f"Error: {response.status_code}")
+```
+
+### cURL
+```bash
+curl -X POST "http://localhost:8000/generate-plant-guide" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "plant_name": "Basil",
+    "plant_type": "Herb",
+    "climate": "Mediterranean",
+    "sunlight_hours": 6,
+    "soil_type": "Well-draining",
+    "watering_frequency": "Every 2 days",
+    "experience_level": "Beginner"
+  }'
+```
+
+---
+
+## Performance
+
+### Expected Response Times
+- Health Check: < 100ms
+- Plant Guide (with API keys): 2-5 seconds
+- Plant Guide (mock mode): < 1 second
+
+### Optimization Tips
+- Response times depend on Gemini API latency
+- Consider caching common plant queries
+- Implement request queuing for high traffic
+
+---
+
+## CORS Configuration
+The API allows cross-origin requests from:
+- http://localhost:3000 (React default)
+- http://localhost:5173 (Vite default)
+
+To add more origins, update `ALLOWED_ORIGINS` in `.env`:
+```env
+ALLOWED_ORIGINS=http://localhost:3000,https://myapp.com
+```
+
+---
+
+## Best Practices
+
+### Input Validation
+- Always validate on both client and server side
+- Handle validation errors gracefully in UI
+- Provide helpful error messages to users
+
+### Error Handling
+- Check `success` field in response
+- Display user-friendly error messages
+- Log detailed errors for debugging
+
+### Loading States
+- Show loading indicators during API calls
+- Typical wait time: 2-5 seconds
+- Consider implementing progress feedback
+
+### Data Processing
+- Parse response structure carefully
+- Handle missing optional fields
+- Validate data before displaying
+
+---
+
+## Support & Troubleshooting
+
+### Common Issues
+
+**Issue: CORS errors**
+- Solution: Add your frontend URL to `ALLOWED_ORIGINS`
+
+**Issue: 422 Validation error**
+- Solution: Check input data against field constraints
+- Common: sunlight_hours must be 0-24
+
+**Issue: Slow responses**
+- Solution: Normal for AI API calls (2-5s)
+- Consider adding loading states
+
+**Issue: Mock responses**
+- Solution: Configure `GEMINI_API_KEY` in `.env`
+
+### Debug Mode
+Enable detailed error messages:
+```env
+DEBUG=True
+```
+
+---
+
+## Future Enhancements
+
+Potential improvements for production:
+- [ ] Add authentication/API keys
+- [ ] Implement rate limiting
+- [ ] Add response caching
+- [ ] Support batch requests
+- [ ] Add plant image upload
+- [ ] Implement WebSocket for real-time updates
+- [ ] Add user preferences storage
+- [ ] Implement A/B testing for prompts
+- [ ] Add analytics and monitoring
+- [ ] Support multiple languages

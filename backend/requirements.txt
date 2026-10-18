@@ -1,0 +1,27 @@
+# FastAPI and server dependencies
+fastapi
+uvicorn[standard]
+python-multipart
+
+# Pydantic for data validation
+pydantic
+pydantic-settings
+
+# Environment variables
+python-dotenv
+
+# HTTP requests for API calls
+httpx
+requests
+
+# CORS middleware
+# fastapi-cors is deprecated, but including it if code relies on it explicitly.
+# Better to use starlette.middleware.cors.CORSMiddleware which comes with fastapi.
+fastapi-cors
+
+# PowerPoint generation
+python-pptx
+
+motor
+python-dotenv
+

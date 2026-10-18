@@ -1,0 +1,209 @@
+# System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Frontend (React/Vue/etc)                  │
+│                                                                   │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
+│  │ Plant Input  │  │ Care Guide   │  │ Visual Guide │          │
+│  │    Form      │  │   Display    │  │   Viewer     │          │
+│  └──────────────┘  └──────────────┘  └──────────────┘          │
+└─────────────────────────────────────────────────────────────────┘
+                            │
+                            │ HTTP/JSON
+                            ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      FastAPI Backend (main.py)                   │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │                    CORS Middleware                        │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                            │                                     │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │                  API Routes (routes/plant.py)             │  │
+│  │                                                            │  │
+│  │  • GET  /health                                           │  │
+│  │  • POST /generate-plant-guide                            │  │
+│  │  • GET  /                                                 │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                            │                                     │
+│                            ▼                                     │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │         Pydantic Validation (schemas/plant.py)            │  │
+│  │                                                            │  │
+│  │  • PlantInputData      • GeminiResponse                  │  │
+│  │  • PlantGuideResponse  • NotebookLMResponse              │  │
+│  └──────────────────────────────────────────────────────────┘  │
+│                            │                                     │
+│          ┌─────────────────┴─────────────────┐                 │
+│          ▼                                     ▼                 │
+│  ┌──────────────────┐              ┌──────────────────┐        │
+│  │  Gemini Service  │              │ NotebookLM Service│        │
+│  │ (services/       │              │ (services/        │        │
+│  │  gemini.py)      │              │  notebooklm.py)   │        │
+│  │                  │              │                   │        │
+│  │ • Build prompt   │              │ • Generate PPT    │        │
+│  │ • Call API       │              │ • Create visuals  │        │
+│  │ • Parse JSON     │              │ • Return link     │        │
+│  └──────────────────┘              └──────────────────┘        │
+│          │                                     │                 │
+│          └─────────────────┬─────────────────┘                 │
+│                            ▼                                     │
+│  ┌──────────────────────────────────────────────────────────┐  │
+│  │       Response Formatter (utils/formatter.py)             │  │
+│  │                                                            │  │
+│  │  • Combine responses                                      │  │
+│  │  • Add metadata                                           │  │
+│  │  • Add personalized insights                             │  │
+│  └──────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+              ┌─────────────────────────────┐
+              │  External APIs                │
+              │                               │
+              │  ┌────────────────────────┐  │
+              │  │   Google Gemini API    │  │
+              │  │   (AI Text Generation) │  │
+              │  └────────────────────────┘  │
+              │                               │
+              │  ┌────────────────────────┐  │
+              │  │   NotebookLM API       │  │
+              │  │   (Visual Generation)  │  │
+              │  │   (Mock when no key)   │  │
+              │  └────────────────────────┘  │
+              └─────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                     Configuration & Utilities                    │
+│                                                                   │
+│  ┌──────────────────┐  ┌──────────────────┐                    │
+│  │  Environment     │  │   Logging &      │                    │
+│  │  Variables       │  │   Error Handler  │                    │
+│  │  (utils/config)  │  │                  │                    │
+│  └──────────────────┘  └──────────────────┘                    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Request Flow
+
+```
+1. User Input
+   └──> Frontend Form
+        └──> Validate locally
+             └──> POST /generate-plant-guide
+
+2. Backend Processing
+   └──> FastAPI receives request
+        └──> Pydantic validates data
+             └──> Route handler orchestrates
+                  ├──> Call Gemini Service
+                  │    └──> Build prompt
+                  │         └──> Call Gemini API
+                  │              └──> Parse JSON response
+                  │
+                  └──> Call NotebookLM Service
+                       └──> Convert data
+                            └──> Call NotebookLM API (or mock)
+                                 └──> Get file URL
+
+3. Response Formatting
+   └──> Combine Gemini + NotebookLM outputs
+        └──> Add metadata & insights
+             └──> Return PlantGuideResponse
+
+4. Frontend Display
+   └──> Parse response
+        └──> Display care guide
+             └──> Show visual assets
+```
+
+## Data Flow
+
+```
+PlantInputData
+    │
+    ├──> Gemini Service ──> Gemini API
+    │         │
+    │         ├──> Prompt Engineering
+    │         ├──> API Call
+    │         └──> JSON Parsing
+    │              │
+    │              ▼
+    │         GeminiResponse
+    │              │
+    │              ├──> plant_overview
+    │              ├──> growth_stages[]
+    │              ├──> daily_care
+    │              ├──> common_problems[]
+    │              └──> additional_tips[]
+    │
+    ├──> NotebookLM Service ──> NotebookLM API
+    │         │
+    │         ├──> Convert to presentation structure
+    │         ├──> API Call (or mock)
+    │         └──> Return file link
+    │              │
+    │              ▼
+    │         NotebookLMResponse
+    │              │
+    │              ├──> status
+    │              ├──> file_url
+    │              ├──> file_type
+    │              └──> message
+    │
+    └──> Response Formatter
+          │
+          └──> PlantGuideResponse
+               │
+               ├──> success: true
+               ├──> plant_care_guidance (Gemini output)
+               ├──> visual_guide (NotebookLM output)
+               └──> metadata
+                    ├──> timestamp
+                    ├──> processing_time
+                    ├──> ai_model
+                    └──> personalized_insights[]
+```
+
+## Module Dependencies
+
+```
+main.py
+ ├── app/routes/plant.py
+ │    ├── app/schemas/plant.py
+ │    ├── app/services/gemini.py
+ │    │    ├── app/schemas/plant.py
+ │    │    └── app/utils/config.py
+ │    ├── app/services/notebooklm.py
+ │    │    ├── app/schemas/plant.py
+ │    │    └── app/utils/config.py
+ │    └── app/utils/formatter.py
+ │         └── app/schemas/plant.py
+ └── app/utils/config.py
+```
+
+## Technology Stack
+
+```
+┌─────────────────────────────────────┐
+│         Application Layer           │
+│  • FastAPI (Web Framework)          │
+│  • Pydantic (Data Validation)       │
+│  • Uvicorn (ASGI Server)           │
+└─────────────────────────────────────┘
+            │
+            ▼
+┌─────────────────────────────────────┐
+│        Integration Layer            │
+│  • HTTPX (Async HTTP Client)        │
+│  • Python-dotenv (Config)           │
+└─────────────────────────────────────┘
+            │
+            ▼
+┌─────────────────────────────────────┐
+│          External APIs              │
+│  • Google Gemini API                │
+│  • NotebookLM API                   │
+└─────────────────────────────────────┘
+```

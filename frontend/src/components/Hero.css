@@ -1,0 +1,87 @@
+.hero-section {
+  min-height: 100vh;   /* 👈 this is the key */
+  width: 100%;
+  position: relative;
+}
+.hero-text{
+    text-align: center;
+    font-size:3.5rem;
+    position: absolute;
+    top: 20%;
+    left: 7%;
+
+}
+.logo-container{
+position: fixed;
+
+}
+
+.hero-text :nth-child(1){
+      background: linear-gradient(90deg, #000000, #000000,transparent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+
+    position: relative;
+    bottom: 55%;
+    right: 8%;
+
+}
+
+.hero-text :nth-child(2){
+          background: linear-gradient(90deg, transparent, #000000 95%,#000000);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+    position: relative;
+    top: 55%;
+    left: 130%;
+
+}
+
+/* Mobile devices */
+@media (max-width: 768px) {
+  .hero-text {
+    font-size: 1rem;
+    left: 10%;
+    top: 25%;
+  }
+
+  .hero-text :nth-child(1) {
+    bottom: 50%;
+
+  }
+
+  .hero-text :nth-child(2) {
+    top: 50%;
+
+  }
+}
+
+/* Small mobile devices */
+@media (max-width: 400px) {
+  .hero-section {
+    min-height: 80vh;
+  }
+
+  .hero-text {
+    font-size: 1rem;
+    left: 5%;
+    top: 30%;
+  }
+
+  .logo-container {
+    position: fixed;
+    width: 100%;
+    padding: 1rem;
+  }
+}
+
+/* Tablets and larger */
+@media (min-width: 1024px) {
+  .hero-text {
+    font-size: 3.5rem;
+  }
+}
