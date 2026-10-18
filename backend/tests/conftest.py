@@ -45,6 +45,22 @@ PNG_1PX = bytes.fromhex(
 ) + b"\x00" * 64
 
 
+@pytest.fixture(autouse=True)
+def reset_rate_limiters():
+    """
+    Rate-limit and login-lockout counters are module-level (in-process) state
+    shared by all tests in one run — reset them around every test so ordered
+    suites neither trip nor inherit limits from each other.
+    """
+    from app.core.deps import login_failures, rate_limiter
+
+    rate_limiter.reset()
+    login_failures.reset()
+    yield
+    rate_limiter.reset()
+    login_failures.reset()
+
+
 @pytest.fixture
 async def store():
     s = MemoryStore()

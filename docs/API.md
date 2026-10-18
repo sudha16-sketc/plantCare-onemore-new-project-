@@ -12,10 +12,21 @@ All responses are JSON. Errors use a consistent shape:
 Authentication uses **Bearer JWT** (`Authorization: Bearer <token>`).
 Tokens are obtained from `/api/v1/auth/register` or `/api/v1/auth/login`.
 
-Rate limits: AI endpoints (`/generate-plant-guide`, `/api/v1/analyze/photo`)
-are limited per client IP (`AI_RATE_LIMIT_REQUESTS` per
-`AI_RATE_LIMIT_WINDOW_SECONDS`, default 100/min). Exceeding it returns
-**429**. Read endpoints are never rate-limited by this limiter.
+Rate limits:
+- AI endpoints (`/generate-plant-guide`, `/api/v1/analyze/photo`) are
+  limited per client IP (`AI_RATE_LIMIT_REQUESTS` per
+  `AI_RATE_LIMIT_WINDOW_SECONDS`, default 10/min).
+- Auth endpoints (`/api/v1/auth/register`, `/api/v1/auth/login`) share a
+  per-IP cap (`AUTH_RATE_LIMIT_REQUESTS` per `AUTH_RATE_LIMIT_WINDOW_SECONDS`,
+  default 20/min), and `login` additionally enforces a per-account lockout
+  after `LOGIN_MAX_FAILURES` failures (default 5) within
+  `LOGIN_FAILURE_WINDOW_SECONDS` (default 300s) — keyed by the submitted
+  email whether or not the account exists, so the lockout never reveals
+  account existence.
+
+All rate-limited responses are **429** with the same generic body
+(`code: "rate_limited"`). Read endpoints are never rate-limited by this
+limiter.
 
 ---
 

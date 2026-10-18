@@ -15,6 +15,7 @@
 | Path traversal on PPT downloads | `../../etc/passwd` style names | Filenames slugified at generation; download route validates with a safe-path check; outside-directory names 404 |
 | Malicious uploads | Oversized/spoofed files | MIME allow-list (jpeg/png/webp) **and** magic-byte sniffing; 8 MB cap (413/415/400); multipart handled by python-multipart |
 | Brute force on AI endpoints | Key/credit exhaustion | Per-IP sliding-window rate limit on AI routes only (429); auth has its own login hardening via bcrypt cost |
+| Credential stuffing / password guessing | Repeated `/login` attempts | Two layers, both returning identical generic 429 bodies: a per-IP cap across auth endpoints, and a per-account failed-login lockout keyed by normalized email. Failures are recorded for **unknown** emails too, so lockout behavior never reveals whether an account exists; the unknown-email path also runs one bcrypt verify against a dummy hash so response timing matches the wrong-password path. Successful login resets the per-account counter. |
 | XSS via AI content | Model output rendered in UI | React escapes by default; no `dangerouslySetInnerHTML` anywhere in the codebase |
 | CORS abuse | Cross-origin browser calls | Explicit origin allow-list from `CORS_ORIGINS`; no `*` when credentials/tokens are involved |
 | Error-based info leaks | Stack traces to clients | Global handlers return generic messages when `DEBUG=false`; details go to server logs only |
@@ -41,12 +42,21 @@ in the web/mobile UI.
 
 ## Residual risks / recommended next steps
 
-1. **Login rate limiting** — the AI routes are rate-limited, but brute-force
-   protection on `/api/v1/auth/login` (per-account lockout or per-IP limiter)
-   is not yet implemented. Add before public production exposure.
+1. **Login limiter scope** — the per-IP cap and per-account lockout are
+   in-process (same deployment model as the AI limiter): each uvicorn worker
+   holds its own counters, so a multi-worker deployment multiplies the
+   effective limits by worker count. For strict global limits, back both
+   trackers with a shared store (Redis/Mongo) — the interfaces
+   (`RateLimiter.check`, `LoginFailureTracker.check/record/clear`) are the
+   seam for that swap. Behind a proxy, ensure the client IP comes from a
+   trusted header or the per-IP cap counts the proxy instead of callers.
 2. **HTTPS everywhere** — JWTs are bearer tokens; deploy behind TLS only.
 3. **JWT secret rotation** — no key-rotation/invalidation story yet
    (short lifetimes + revocation list would be the next step).
 4. **CSP headers** — consider a Content-Security-Policy on the nginx layer.
 5. **Audit logging** — auth events (register/login failures) are logged at
    app level but not persisted to a dedicated audit store.
+6. **Registration conflict disclosure** — `/register` returns 409 on an
+   existing email. That is a deliberate UX tradeoff shared by most
+   registration flows; if strict no-enumeration is required, switch to an
+   email-verification flow that responds identically for taken addresses.

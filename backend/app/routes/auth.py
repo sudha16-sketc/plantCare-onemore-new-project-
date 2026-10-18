@@ -4,17 +4,37 @@ Authentication routes.
 Passwords are hashed with bcrypt server-side; the API returns a signed JWT.
 There is no client-supplied identity — every authenticated request derives
 the user from the verified token.
+
+Brute-force protection (both layers always return the same generic error
+envelopes regardless of whether the submitted account exists):
+  1. per-IP cap across auth endpoints (enforce_auth_rate_limit)
+  2. per-account failed-login lockout (login_failures)
 """
+
+import secrets
 
 from fastapi import APIRouter, Depends, Request
 
-from app.core.deps import enforce_auth_rate_limit, get_current_user
+from app.core.deps import enforce_auth_rate_limit, get_current_user, login_failures
 from app.core.errors import AppError, UnauthorizedError
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.store import UserRecord, get_store
 from app.schemas.auth import AuthResponse, LoginRequest, RegisterRequest, UserPublic
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Auth"])
+
+# Verified against when the email is unknown so the unknown-email path costs
+# exactly one bcrypt check — same work and timing as the wrong-password path
+# (prevents user enumeration by response timing). Built lazily with the
+# configured bcrypt cost.
+_dummy_password_hash: str | None = None
+
+
+def _get_dummy_password_hash() -> str:
+    global _dummy_password_hash
+    if _dummy_password_hash is None:
+        _dummy_password_hash = hash_password(secrets.token_urlsafe(32))
+    return _dummy_password_hash
 
 
 def _user_public(user: UserRecord) -> UserPublic:
@@ -38,11 +58,23 @@ async def register(body: RegisterRequest, request: Request) -> AuthResponse:
 @router.post("/login", response_model=AuthResponse, summary="Sign in")
 async def login(body: LoginRequest, request: Request) -> AuthResponse:
     enforce_auth_rate_limit(request)
+    # Normalized exactly like the store indexes emails, and tracked even for
+    # unknown accounts so lockout alone cannot reveal existence.
+    email_key = body.email.strip().lower()
+    login_failures.check(email_key)
+
     store = get_store()
     user = await store.get_user_by_email(body.email)
-    # Same error for unknown email and wrong password (no user enumeration).
-    if user is None or not verify_password(body.password, user.password_hash):
+    if user is None:
+        # Same error, same bcrypt work as the wrong-password path.
+        verify_password(body.password, _get_dummy_password_hash())
+        login_failures.record(email_key)
         raise UnauthorizedError("Invalid email or password.")
+    if not verify_password(body.password, user.password_hash):
+        login_failures.record(email_key)
+        raise UnauthorizedError("Invalid email or password.")
+
+    login_failures.clear(email_key)
     token = create_access_token(user.id)
     return AuthResponse(access_token=token, user=_user_public(user))
 

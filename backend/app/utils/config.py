@@ -65,6 +65,16 @@ class Settings(BaseSettings):
     ai_rate_limit_requests: int = 10
     ai_rate_limit_window_seconds: int = 60
 
+    # --- Rate limiting (auth endpoints) ---
+    # Per-client-IP cap across /register + /login (shared window).
+    auth_rate_limit_requests: int = 20
+    auth_rate_limit_window_seconds: int = 60
+    # Per-account failed-login lockout. Keyed by submitted email and
+    # recorded for unknown emails too, so lockout behavior is identical
+    # for existing and non-existent accounts (no enumeration oracle).
+    login_max_failures: int = 5
+    login_failure_window_seconds: int = 300
+
     # --- Generated files (PPT) ---
     generated_dir: str = "generated_files"
     generated_file_ttl_seconds: int = 3600  # clean up after 1 hour
