@@ -3,7 +3,7 @@ Pydantic schemas for request and response validation.
 These models ensure type safety and automatic validation.
 """
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 
@@ -71,9 +71,8 @@ class PlantInputData(BaseModel):
         """Remove leading and trailing whitespace from string fields."""
         return v.strip() if isinstance(v, str) else v
     
-    class Config:
-        """Pydantic configuration"""
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "plant_name": "Tomato",
                 "plant_type": "Vegetable",
@@ -81,9 +80,10 @@ class PlantInputData(BaseModel):
                 "sunlight_hours": 6,
                 "soil_type": "Loamy",
                 "watering_frequency": "Daily",
-                "experience_level": "Beginner"
+                "experience_level": "Beginner",
             }
         }
+    )
     
 
 
@@ -167,41 +167,22 @@ class PlantGuideResponse(BaseModel):
     plant_care_guidance: GeminiResponse
     visual_guide: Optional[VisualGuideResponse] = None
     metadata: Dict[str, Any]
-    
-    class Config:
-        """Pydantic configuration"""
-        json_schema_extra = {
+
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "success": True,
-                "plant_care_guidance": {
-                    "plant_overview": {
-                        "description": "Comprehensive plant information",
-                        "ideal_conditions": {},
-                        "benefits": [],
-                        "difficulty_level": "Beginner"
-                    },
-                    "growth_stages": [],
-                    "daily_care": {
-                        "morning_routine": [],
-                        "afternoon_routine": [],
-                        "evening_routine": [],
-                        "weekly_tasks": []
-                    },
-                    "common_problems": [],
-                    "additional_tips": []
-                },
-               "visual_guide": {
+                "plant_care_guidance": {"...": "see GeminiResponse schema"},
+                "visual_guide": {
                     "status": "success",
-                    "file_url": "https://example.com/guide.pptx",
+                    "file_url": "https://api.example.com/api/v1/files/rose_care_guide_ab12cd34.pptx",
                     "file_type": "pptx",
-                    "message": "Visual guide generated successfully"
+                    "message": "Care guide presentation generated successfully",
                 },
-               "metadata": {
-                    "timestamp": "2026-01-27T10:00:00Z",
-                    "processing_time_seconds": 2.5
-                }
+                "metadata": {"timestamp": "2026-01-27T10:00:00Z", "processing_time_seconds": 2.5},
             }
         }
+    )
     
 
 

@@ -53,3 +53,6 @@ logs/
 
 # Generated artifacts
 generated_files/
+
+# Test-generated artifacts
+test_generated_files/
