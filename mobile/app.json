@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "PlantCare",
+    "slug": "plantcare",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "plantcare",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.plantcare.app"
+    },
+    "android": {
+      "package": "com.plantcare.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#d8f3dc"
+      },
+      "permissions": [
+        "CAMERA",
+        "READ_MEDIA_IMAGES"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "PlantCare uses your photos to identify plants and check for visible problems.",
+          "cameraPermission": "PlantCare uses your camera so you can photograph a plant to identify it."
+        }
+      ],
+      "expo-web-browser"
+    ],
+    "extra": {
+      "apiBaseUrl": "http://localhost:8000"
+    }
+  }
+}

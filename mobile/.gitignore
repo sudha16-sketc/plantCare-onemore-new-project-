@@ -1,0 +1,27 @@
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native builds
+*.apk
+*.aab
+*.ipa
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Env
+.env
+.env.*
+!.env.example
+
+# macOS
+.DS_Store
