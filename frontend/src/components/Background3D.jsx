@@ -54,7 +54,36 @@ function Model({ scale }) {
    Background Canvas
 ========================= */
 export default function Background3D() {
-  const scale = useScrollScale();
+  const [reducedMotion, setReducedMotion] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const onChange = (e) => setReducedMotion(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  const scale = useScrollScale({ min: reducedMotion ? 1 : 0.75, max: 1.1 });
+
+  if (reducedMotion) {
+    // Static CSS gradient instead of the animated 3D scene.
+    return (
+      <div
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: -1,
+          background:
+            "radial-gradient(ellipse at 30% 20%, #d8f3dc 0%, #b7e4c7 45%, #95d5b2 100%)",
+        }}
+      />
+    );
+  }
 
   return (
     <Canvas

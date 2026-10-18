@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import './Navbar.css';
 
 function Navbar() {
@@ -70,6 +70,21 @@ function Navbar() {
           <Link to="/" className="nav-item" onClick={() => setIsMenuOpen(false)}>
             Home
           </Link>
+
+          <Link to="/identify" className="nav-item" onClick={() => setIsMenuOpen(false)}>
+            Identify
+          </Link>
+
+          {isAuthenticated && (
+            <>
+              <Link to="/dashboard" className="nav-item" onClick={() => setIsMenuOpen(false)}>
+                Dashboard
+              </Link>
+              <Link to="/plants" className="nav-item" onClick={() => setIsMenuOpen(false)}>
+                My Plants
+              </Link>
+            </>
+          )}
 
           {isAuthenticated ? (
             <>

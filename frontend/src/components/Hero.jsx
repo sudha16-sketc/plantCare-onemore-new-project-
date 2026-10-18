@@ -6,6 +6,9 @@ function Hero() {
   const [scale, setScale] = useState(1);
 
   useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (mq.matches) return undefined;
+
     const onScroll = () => {
       const y = window.scrollY;
       const progress = Math.min(y / 700, 1);

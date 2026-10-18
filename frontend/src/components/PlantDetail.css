@@ -1,0 +1,250 @@
+.plant-detail-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+.back-link {
+  display: inline-block;
+  color: #2d6a4f;
+  font-weight: 600;
+  text-decoration: none;
+  margin-bottom: 1rem;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+}
+
+.detail-header h1 {
+  margin: 0;
+  color: #1b4332;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.detail-species {
+  margin: 0.2rem 0 0;
+  color: #52796f;
+  font-style: italic;
+}
+
+.detail-header-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.overdue-badge {
+  background: #f1aeb5;
+  color: #5c1014;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.detail-card {
+  background: #fff;
+  border: 1px solid #d8f3dc;
+  border-radius: 14px;
+  padding: 1.25rem;
+}
+
+.detail-card h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.05rem;
+  color: #1b4332;
+}
+
+.detail-card h3 {
+  margin: 1rem 0 0.35rem;
+  font-size: 0.95rem;
+  color: #1b4332;
+}
+
+.detail-card dl {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.detail-card dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px dashed #d8f3dc;
+  padding-bottom: 0.4rem;
+}
+
+.detail-card dt {
+  color: #52796f;
+  font-size: 0.85rem;
+}
+
+.detail-card dd {
+  margin: 0;
+  color: #1b4332;
+  font-weight: 600;
+  text-align: right;
+}
+
+.care-notes {
+  margin: 0;
+  color: #40916c;
+  white-space: pre-wrap;
+}
+
+.water-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.water-form label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #1b4332;
+}
+
+.water-form textarea {
+  border: 1px solid #b7e4c7;
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  font: inherit;
+  resize: vertical;
+}
+
+.water-form textarea:focus-visible {
+  outline: 2px solid #2d6a4f;
+  outline-offset: 1px;
+}
+
+.water-form-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.primary-button {
+  background: #2d6a4f;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.primary-button:hover:not(:disabled) {
+  background: #1b4332;
+}
+
+.primary-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.small-button {
+  background: #d8f3dc;
+  color: #1b4332;
+  border: 1px solid #95d5b2;
+  border-radius: 8px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.small-button:hover {
+  background: #95d5b2;
+}
+
+.danger-button {
+  background: #ffe8e8;
+  border-color: #f1aeb5;
+  color: #9b2226;
+}
+
+.danger-button:hover {
+  background: #f1aeb5;
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.history-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px dashed #d8f3dc;
+  padding-bottom: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.history-notes {
+  color: #52796f;
+  font-style: italic;
+}
+
+.history-empty {
+  color: #52796f;
+  margin: 0;
+}
+
+.state-message {
+  background: #f1f8f4;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  text-align: center;
+  color: #40916c;
+}
+
+.state-error {
+  background: #ffe8e8;
+  color: #9b2226;
+}
+
+.state-link {
+  color: #2d6a4f;
+  font-weight: 600;
+}
+
+@media (max-width: 700px) {
+  .plant-detail-page {
+    padding: 1.25rem 1rem 3rem;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+}

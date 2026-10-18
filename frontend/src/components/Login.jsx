@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import './Login.css';
 
 function Login() {
@@ -10,7 +10,7 @@ function Login() {
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
   const navigate = useNavigate();
   const { login, signup } = useAuth();
 
@@ -24,30 +24,15 @@ function Login() {
         if (!username.trim()) {
           throw new Error('Username is required');
         }
-        signup(email, password, username);
+        await signup(email.trim(), password, username.trim());
       } else {
-        login(email, password);
+        await login(email.trim(), password);
       }
-      navigate('/');
+      navigate('/dashboard');
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDemoLogin = () => {
-    try {
-      // Check if demo user exists, if not create it
-      const users = JSON.parse(localStorage.getItem('users') || '[]');
-      if (!users.some((u) => u.email === 'demo@example.com')) {
-        signup('demo@example.com', 'Demo@123', 'Demo User');
-      } else {
-        login('demo@example.com', 'Demo@123');
-      }
-      navigate('/');
-    } catch (err) {
-      setError(err.message);
     }
   };
 
@@ -60,20 +45,20 @@ function Login() {
             viewBox="0 0 24 24"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
           >
             <path
               d="M12 2C12 2 8 6 8 10C8 11.0609 8.42143 12.0783 9.17157 12.8284C9.92172 13.5786 10.9391 14 12 14C13.0609 14 14.0783 13.5786 14.8284 12.8284C15.5786 12.0783 16 11.0609 16 10C16 6 12 2 12 2Z"
               fill="currentColor"
             />
-            <path
-              d="M12 14V22M8 18H16"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
+            <path d="M12 14V22M8 18H16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
           <h1>PlantCare AI Guide</h1>
-          <p>{isSignUp ? 'Create your account' : 'Welcome back'}</p>
+          <p>
+            {isSignUp
+              ? 'Create your account — plants sync securely to the server'
+              : 'Welcome back'}
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="login-form">
@@ -87,6 +72,10 @@ function Login() {
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Enter your username"
                 disabled={loading}
+                minLength={3}
+                maxLength={50}
+                required
+                autoComplete="username"
               />
             </div>
           )}
@@ -101,6 +90,7 @@ function Login() {
               placeholder="Enter your email"
               required
               disabled={loading}
+              autoComplete="email"
             />
           </div>
 
@@ -111,35 +101,24 @@ function Login() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
+              placeholder={isSignUp ? 'At least 8 characters' : 'Enter your password'}
               required
               disabled={loading}
+              minLength={8}
+              autoComplete={isSignUp ? 'new-password' : 'current-password'}
             />
           </div>
 
-          {error && <div className="error-message">{error}</div>}
+          {error && (
+            <div className="error-message" role="alert">
+              {error}
+            </div>
+          )}
 
-          <button
-            type="submit"
-            className="submit-button"
-            disabled={loading}
-          >
-            {loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
+          <button type="submit" className="submit-button" disabled={loading}>
+            {loading ? 'Please wait…' : isSignUp ? 'Sign Up' : 'Sign In'}
           </button>
         </form>
-
-        <div className="auth-divider">
-          <span>or</span>
-        </div>
-
-        <button
-          type="button"
-          className="demo-button"
-          onClick={handleDemoLogin}
-          disabled={loading}
-        >
-          Try Demo Account
-        </button>
 
         <div className="auth-toggle">
           <p>
@@ -160,6 +139,11 @@ function Login() {
             </button>
           </p>
         </div>
+
+        <p className="auth-note">
+          Accounts are stored server-side with bcrypt password hashing. You can
+          also generate care guides without signing in.
+        </p>
       </div>
     </div>
   );

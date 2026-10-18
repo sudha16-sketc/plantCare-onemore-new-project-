@@ -1,146 +1,74 @@
-import { useState, useEffect } from "react";
-import PlantForm from "./PlantForm.jsx";
-import Loading from "./Loading.jsx";
-import PlantOverview from "./PlantOverview.jsx";
-import GrowthStages from "./GrowthStage.jsx";
-import DailyCare from "./DailyCare.jsx";
-import Problems from "./Problem.jsx";
-import VisualGuide from "./VisualGuide.jsx";
-import ExtraTips from "./ExtraTips.jsx";
+import { useState } from 'react';
+import PlantForm from './PlantForm.jsx';
+import Loading from './Loading.jsx';
+import PlantOverview from './PlantOverview.jsx';
+import GrowthStages from './GrowthStage.jsx';
+import DailyCare from './DailyCare.jsx';
+import Problems from './Problem.jsx';
+import VisualGuide from './VisualGuide.jsx';
+import ExtraTips from './ExtraTips.jsx';
 
-import { useAuth } from "../context/AuthContext.jsx";
+import { useAuth } from '../context/useAuth.js';
+import * as api from '../api/client';
 
-import "./MainPage.css";
+import './MainPage.css';
 
-/**
- * PlantCare Frontend Application
- *
- * This React app integrates with the FastAPI backend to provide
- * AI-powered plant care guidance using multiple services.
- *
- * Architecture:
- * 1. User fills out plant information form  
- * 2. Frontend sends request to backend API  
- * 3. Backend calls Gemini AI for guidance generation
- * 4. Backend generates PPT with visual guide
- * 5. Frontend displays comprehensive care guide
- *
- * Environment:
- * - REACT_APP_API_URL: Backend API endpoint (default: http://localhost:8000)
- * - Set in .env.local file
- */
-
-// API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
-
-const generatePlantGuide = async (formData) => {
-  try {
-    // Transform frontend form data to match backend schema
-    const payload = {
-      plant_name: formData.plant_name,
-      plant_type: formData.plant_type,
-      climate: formData.climate,
-      sunlight_hours: parseInt(formData.sunlight_hours, 10),
-      soil_type: formData.soil_type,
-      watering_frequency: formData.watering_frequency,
-      experience_level: formData.experience_level,
-    };
-
-    console.log("Sending request to backend:", payload);
-
-    const response = await fetch(`${API_BASE_URL}/generate-plant-guide`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      const errorMessage =
-        errorData.detail || errorData.error || `HTTP ${response.status}`;
-      throw new Error(errorMessage);
-    }
-
-    const data = await response.json();
-    console.log("Received response from backend:", data);
-
-    // Transform backend response to frontend format
-    return {
-      overview: {
-        plant_name: formData.plant_name,
-        description: data.plant_care_guidance.plant_overview.description,
-        difficulty_level:
-          data.plant_care_guidance.plant_overview.difficulty_level,
-        ideal_conditions:
-          data.plant_care_guidance.plant_overview.ideal_conditions,
-        benefits: data.plant_care_guidance.plant_overview.benefits,
-      },
-      growth_stages: data.plant_care_guidance.growth_stages.map((stage) => ({
-        stage_name: stage.stage_name,
-        duration: stage.duration,
-        care_instructions: stage.care_instructions,
-        key_indicators: stage.key_indicators,
-      })),
-      daily_care: {
-        morning:
-          data.plant_care_guidance.daily_care.morning_routine?.join("\n") || "",
-        afternoon:
-          data.plant_care_guidance.daily_care.afternoon_routine?.join("\n") ||
-          "",
-        evening:
-          data.plant_care_guidance.daily_care.evening_routine?.join("\n") || "",
-        weekly_tasks: data.plant_care_guidance.daily_care.weekly_tasks || [],
-      },
-      common_problems: data.plant_care_guidance.common_problems.map(
-        (problem) => ({
-          problem: problem.problem,
-          symptoms: problem.symptoms?.join("\n") || problem.symptoms,
-          solution: problem.solution,
-          prevention: problem.prevention,
-        }),
-      ),
-      extra_tips: data.plant_care_guidance.additional_tips || [],
-      visual_guide: data.visual_guide?.file_url || null,
-    };
-  } catch (error) {
-    console.error("API Error:", error);
-    throw error;
-  }
+// PlantForm watering_frequency labels → interval days for the collection API
+const WATERING_INTERVAL_DAYS = {
+  Daily: 1,
+  'Every 2-3 days': 3,
+  Weekly: 7,
+  'Bi-weekly': 14,
+  Monthly: 30,
 };
+
+function transformGuideResponse(data, plantName) {
+  return {
+    overview: {
+      plant_name: plantName,
+      description: data.plant_care_guidance.plant_overview.description,
+      difficulty_level: data.plant_care_guidance.plant_overview.difficulty_level,
+      ideal_conditions: data.plant_care_guidance.plant_overview.ideal_conditions,
+      benefits: data.plant_care_guidance.plant_overview.benefits,
+    },
+    growth_stages: data.plant_care_guidance.growth_stages.map((stage) => ({
+      stage_name: stage.stage_name,
+      duration: stage.duration,
+      care_instructions: stage.care_instructions,
+      key_indicators: stage.key_indicators,
+    })),
+    daily_care: {
+      morning: data.plant_care_guidance.daily_care.morning_routine?.join('\n') || '',
+      afternoon: data.plant_care_guidance.daily_care.afternoon_routine?.join('\n') || '',
+      evening: data.plant_care_guidance.daily_care.evening_routine?.join('\n') || '',
+      weekly_tasks: data.plant_care_guidance.daily_care.weekly_tasks || [],
+    },
+    common_problems: data.plant_care_guidance.common_problems.map((problem) => ({
+      problem: problem.problem,
+      symptoms: problem.symptoms?.join('\n') || problem.symptoms,
+      solution: problem.solution,
+      prevention: problem.prevention,
+    })),
+    extra_tips: data.plant_care_guidance.additional_tips || [],
+    visual_guide: data.visual_guide?.file_url || null,
+    ai_source: data.metadata?.ai_source || data.plant_care_guidance?.ai_source || null,
+    saved_to_collection: false,
+  };
+}
 
 function MainPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [plantGuide, setPlantGuide] = useState(null);
   const [progress, setProgress] = useState(0);
-  const [formData, setFormData] = useState(null);
-  const { addPlant, user } = useAuth();
-
-  const checkApiStatus = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/health`);
-      return response.ok ? "online" : "error";
-    } catch (err) {
-      console.warn("API status check failed:", err);
-      return "offline";
-    }
-  };
-
-  // Check API health on component mount
-  useEffect(() => {
-    checkApiStatus();
-  }, []);
+  const { user } = useAuth();
 
   const handleSubmit = async (data) => {
-    setFormData(data);
     setLoading(true);
     setError(null);
     setPlantGuide(null);
     setProgress(0);
 
-    // Simulate progress
     const progressInterval = setInterval(() => {
       setProgress((prev) => {
         if (prev >= 90) {
@@ -152,28 +80,36 @@ function MainPage() {
     }, 300);
 
     try {
-      const result = await generatePlantGuide(data);
+      const response = await api.generatePlantGuide(data);
       setProgress(100);
-      setTimeout(() => {
-        setPlantGuide(result);
-        setLoading(false);
-        
-        // Add plant to user's profile if logged in
-        if (user) {
-          addPlant({
-            plant_name: data.plant_name,
-            plant_type: data.plant_type,
-            climate: data.climate,
-            sunlight_hours: data.sunlight_hours,
-            soil_type: data.soil_type,
-            watering_frequency: data.watering_frequency,
-            experience_level: data.experience_level,
+
+      let guide = transformGuideResponse(response, data.plant_name);
+
+      // Save the plant to the user's server-side collection when signed in
+      if (user) {
+        try {
+          await api.createPlant({
+            name: data.plant_name,
+            species: data.plant_type || null,
+            climate: data.climate || null,
+            soil_type: data.soil_type || null,
+            sunlight: `${data.sunlight_hours} hours`,
+            watering_interval_days:
+              WATERING_INTERVAL_DAYS[data.watering_frequency] || 7,
+            care_notes: `Experience level: ${data.experience_level}`,
           });
+          guide = { ...guide, saved_to_collection: true };
+        } catch {
+          // Non-fatal: the guide itself succeeded
         }
+      }
+
+      setTimeout(() => {
+        setPlantGuide(guide);
+        setLoading(false);
       }, 300);
     } catch (err) {
-      console.error("Error generating guide:", err);
-      setError(err.message || "Something went wrong. Try again.");
+      setError(err.message || 'Something went wrong. Try again.');
       setLoading(false);
       clearInterval(progressInterval);
     }
@@ -208,14 +144,9 @@ function MainPage() {
                 viewBox="0 0 24 24"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
               >
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
                 <path
                   d="M12 8V12M12 16H12.01"
                   stroke="currentColor"
@@ -238,6 +169,7 @@ function MainPage() {
                 viewBox="0 0 24 24"
                 fill="none"
                 xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
               >
                 <path
                   d="M12 5V19M5 12H19"
@@ -248,6 +180,18 @@ function MainPage() {
               </svg>
               Create New Guide
             </button>
+
+            {plantGuide.ai_source === 'mock' && (
+              <p className="guide-notice" role="note">
+                Demo mode: this guide was produced by the mock AI service, not
+                the live model.
+              </p>
+            )}
+            {plantGuide.saved_to_collection && (
+              <p className="guide-notice success" role="status">
+                Saved to <strong>My Plants</strong> with a watering reminder.
+              </p>
+            )}
 
             <div className="guide-content">
               <PlantOverview data={plantGuide.overview} />
@@ -261,7 +205,6 @@ function MainPage() {
             </div>
           </div>
         )}
-      
       </main>
     </div>
   );
