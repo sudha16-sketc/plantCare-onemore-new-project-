@@ -1,32 +1,36 @@
+"""
+Initialize database indexes (run once against a configured MongoDB):
+
+    cd backend && python -m app.scripts.init_db
+
+Requires MONGODB_URI in the environment. No-ops with a clear message when
+the API is running in in-memory mode.
+"""
+
 import asyncio
-from app.db.mongodb import (
-    users_collection,
-    plants_collection,
-    plant_guides_collection,
-    notifications_collection
-)
+import logging
 
-async def init_indexes():
-    """Initialize database indexes for collections."""
-    indexes = [
-        (users_collection, "email", {"unique": True}),
-        (plants_collection, "user_id", {}),
-        (plant_guides_collection, "plant_name", {}),
-        (notifications_collection, "scheduled_at", {}),
-    ]
-    
-    for collection, field, options in indexes:
-        try:
-            await collection.create_index(field, **options)
-            print(f"✓ Created index on {collection.name}.{field}")
-        except Exception as e:
-            print(f"⚠ Index creation failed on {field}: {str(e)[:100]}")
+from app.db.store import get_store
+from app.utils.config import settings
 
-async def main():
-    """Main function to initialize database."""
-    print("Initializing Plant Care database indexes...")
-    await init_indexes()
-    print("Database initialization complete.")
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("plantcare.init_db")
+
+
+async def main() -> None:
+    if not settings.mongodb_uri:
+        logger.warning(
+            "MONGODB_URI is not set — the API uses in-memory storage and has nothing to initialize."
+        )
+        return
+    store = get_store()
+    if hasattr(store, "ensure_indexes"):
+        await store.ensure_indexes()
+        logger.info("Database indexes ensured.")
+    else:
+        logger.warning("Active store does not support index creation.")
+    await store.close()
+
 
 if __name__ == "__main__":
     asyncio.run(main())

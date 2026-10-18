@@ -1,171 +1,174 @@
 """
 Main FastAPI Application
 
-This is the entry point for the Smart Plant Growth Assistant API.
-It configures the FastAPI app, CORS, middleware, and includes all routes.
+Entry point for the PlantCare API. Configures CORS, error handling,
+request limits, logging, and mounts all routes.
 """
 
-from fastapi import FastAPI
+import logging
+import os
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
-import os
-from app.services.plant import router as plant_router
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from app.core.errors import AppError, error_body
+from app.routes import analysis, auth, files, guide, health, plants
+from app.services.ppt_service import ppt_service
 from app.utils.config import settings
 
+# Root logger stays INFO; only PlantCare loggers go DEBUG in debug mode so
+# third-party libraries (e.g. pymongo) do not flood the console.
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+if settings.debug:
+    for _name in ("plantcare", "plantcare.gemini", "plantcare.guide", "plantcare.ppt", "plantcare.analysis"):
+        logging.getLogger(_name).setLevel(logging.DEBUG)
+logger = logging.getLogger("plantcare")
 
 
-# Create FastAPI application instance
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup/shutdown: log honest status, start generated-file cleanup."""
+    logger.info("PlantCare API starting (debug=%s)", settings.debug)
+    origins = settings.get_allowed_origins_list()
+    logger.info("CORS origins: %s", origins)
+    if not settings.gemini_api_key:
+        if settings.allow_mock_ai:
+            logger.warning("GEMINI_API_KEY not set — MOCK AI mode enabled (ALLOW_MOCK_AI=true)")
+        else:
+            logger.warning("GEMINI_API_KEY not set — AI endpoints will return 503")
+    if not settings.mongodb_uri:
+        logger.warning("MONGODB_URI not set — using in-memory storage (data is NOT persisted)")
+    cleanup_task = await ppt_service.start_cleanup_task()
+    yield
+    cleanup_task.cancel()
+    logger.info("PlantCare API stopped")
+
+
 app = FastAPI(
-    title="Smart Plant Growth Assistant API",
-    description="""
-    AI-powered backend for generating comprehensive plant care guidance.
-    
-    ## Features
-    * 🌱 Generate detailed plant care guides using Gemini AI
-    * 📊 Get growth stage information and timelines
-    * 💡 Receive daily care routines and tips
-    * 🐛 Learn about common problems and solutions
-    * 📁 Generate visual guides (PPT/PDF) with NotebookLM
-    
-    ## How to Use
-    1. Send plant information to `/generate-plant-guide`
-    2. Receive comprehensive care guidance and visual assets
-    3. Use the guidance to care for your plants successfully
-    
-    ## API Status
-    Check `/health` endpoint for API status.
-    """,
-    version="1.0.0",
+    title="PlantCare API",
+    description=(
+        "AI-powered plant care guidance, photo analysis, plant collection, "
+        "and watering reminders."
+    ),
+    version="1.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
-    openapi_url="/openapi.json"
+    openapi_url="/openapi.json",
+    lifespan=lifespan,
 )
 
-# Configure CORS
+# --- CORS: configured origins only; "*" is incompatible with credentials ---
+_origins = settings.get_allowed_origins_list()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000", "http://127.0.0.1:5173", "*"],
+    allow_origins=_origins,
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all HTTP methods
-    allow_headers=["*"],  # Allow all headers
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
-# Global exception handler
+@app.middleware("http")
+async def request_limits_and_headers(request: Request, call_next):
+    """Enforce a request body size cap and add basic security headers."""
+    cl = request.headers.get("content-length")
+    if cl and cl.isdigit() and int(cl) > settings.max_request_bytes:
+        return JSONResponse(
+            status_code=413,
+            content={"success": False, "error": "Request body too large", "code": "payload_too_large"},
+        )
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    return response
+
+
+# --- Safe error handlers (never leak stack traces or provider details) ---
+
+
+@app.exception_handler(AppError)
+async def app_error_handler(request: Request, exc: AppError):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=error_body(exc, include_detail=settings.debug),
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError):
+    # FastAPI's default detail can echo raw input values; keep only field names/messages.
+    safe = [
+        {"field": ".".join(str(loc) for loc in err.get("loc", []) if loc != "body"), "message": err.get("msg", "invalid")}
+        for err in exc.errors()[:10]
+    ]
+    return JSONResponse(
+        status_code=422,
+        content={
+            "success": False,
+            "error": "Request validation failed",
+            "code": "validation_error",
+            "fields": safe,
+        },
+    )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"success": False, "error": str(exc.detail), "code": "http_error"},
+    )
+
+
 @app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
-    """
-    Handle all uncaught exceptions globally.
-    """
-    debug = os.getenv("DEBUG", "False").lower() == "true"
+async def global_exception_handler(request: Request, exc: Exception):
+    # Log full traceback server-side; clients get a generic message.
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
     return JSONResponse(
         status_code=500,
         content={
             "success": False,
-            "error": "Internal server error",
-            "detail": str(exc) if debug else "An unexpected error occurred"
-        }
+            "error": "An unexpected error occurred" if not settings.debug else str(exc),
+            "code": "internal_error",
+        },
     )
 
-# Mount static files directory for generated PPT files
-generated_files_dir = "generated_files"
-os.makedirs(generated_files_dir, exist_ok=True)
 
-try:
-    app.mount("/files", StaticFiles(directory=generated_files_dir), name="files")
-except Exception as e:
-    print(f"Warning: Could not mount static files directory: {e}")
-
-# Include routers
-app.include_router(
-    plant_router,
-    tags=["Plant Care"]
-)
+# --- Routes ---
+app.include_router(health.router)
+app.include_router(auth.router)
+app.include_router(guide.router)
+app.include_router(analysis.router)
+app.include_router(plants.router)
+app.include_router(files.router)
 
 
-# Startup event
-@app.on_event("startup")
-async def startup_event():
-    """
-    Execute on application startup.
-    
-    Perform any initialization tasks here.
-    """
-    import os
-    print("=" * 80)
-    print("🌱 PlantCare Backend - Smart Plant Growth Assistant API".center(80))
-    print("=" * 80)
-    print()
-    print("  📍 Server Status:")
-    print(f"     • Host: 0.0.0.0:8000")
-    print(f"     • Environment: {'DEBUG' if os.getenv('DEBUG', 'False').lower() == 'true' else 'PRODUCTION'}")
-    print()
-    print("  🔐 API Security:")
-    gemini_key = os.getenv("GEMINI_API_KEY", "")
-    notebooklm_key = os.getenv("NOTEBOOKLM_API_KEY", "")
-    print(f"     • Gemini API: {'✓ Configured' if gemini_key else '✗ Demo Mode (using mock data)'}")
-    print(f"     • NotebookLM: {'✓ Configured' if notebooklm_key else '✗ Demo Mode (PPT generation enabled)'}")
-    print()
-    print("  📁 Generated Files:")
-    os.makedirs("generated_files", exist_ok=True)
-    print(f"     • Location: ./generated_files/")
-    print(f"     • Access: http://localhost:8000/files/{{filename}}")
-    print()
-    print("  🌐 Frontend Integration:")
-    cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:5173")
-    print(f"     • URLs: {cors_origins}")
-    print()
-    print("  📚 Documentation:")
-    print("     • Swagger UI: http://localhost:8000/docs")
-    print("     • ReDoc: http://localhost:8000/redoc")
-    print("     • OpenAPI: http://localhost:8000/openapi.json")
-    print()
-    print("=" * 80)
-    print()
-    print("✨ API is ready! Send first request to /generate-plant-guide".center(80))
-    print("=" * 80)
-
-
-# Shutdown event
-@app.on_event("shutdown")
-async def shutdown_event():
-    """
-    Execute on application shutdown.
-    
-    Perform cleanup tasks here.
-    """
-    print("=" * 60)
-    print("🌱 Smart Plant Growth Assistant API Shutting Down...")
-    print("=" * 60)
-
-
-# Root endpoint (also available in routes, but good to have here)
-@app.get("/")
+@app.get("/", include_in_schema=False)
 async def root():
-    """
-    Root endpoint with API information.
-    
-    Returns:
-        Basic API information
-    """
     return {
-        "name": "Smart Plant Growth Assistant API",
-        "version": "1.0.0",
+        "name": "PlantCare API",
+        "version": "1.1.0",
         "status": "running",
         "documentation": "/docs",
-        "health_check": "/health"
+        "health": "/health",
+        "readiness": "/ready",
     }
 
 
 if __name__ == "__main__":
     import uvicorn
-    
-    # Run the application
+
     uvicorn.run(
         "app.main:app",
         host=settings.host,
         port=settings.port,
         reload=settings.debug,
-        log_level="info"
+        log_level="debug" if settings.debug else "info",
     )

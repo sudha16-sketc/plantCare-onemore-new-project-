@@ -1,27 +1,21 @@
-# FastAPI and server dependencies
-fastapi
-uvicorn[standard]
-python-multipart
+# PlantCare backend — pinned runtime dependencies (Python 3.12)
+# Install: pip install -r requirements.txt
 
-# Pydantic for data validation
-pydantic
-pydantic-settings
+fastapi==0.144.0
+starlette==1.8.0
+uvicorn[standard]==0.54.0
+python-multipart==0.0.32
 
-# Environment variables
-python-dotenv
+pydantic==2.14.1
+pydantic-settings==2.16.0
+email-validator==2.3.0
 
-# HTTP requests for API calls
-httpx
-requests
+httpx==0.28.1
+google-genai==2.31.0
 
-# CORS middleware
-# fastapi-cors is deprecated, but including it if code relies on it explicitly.
-# Better to use starlette.middleware.cors.CORSMiddleware which comes with fastapi.
-fastapi-cors
+python-pptx==1.0.2
 
-# PowerPoint generation
-python-pptx
+motor==3.7.1
 
-motor
-python-dotenv
-
+bcrypt==5.0.0
+PyJWT==2.15.1

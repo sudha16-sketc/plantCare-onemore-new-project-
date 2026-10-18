@@ -1,68 +1,125 @@
-from motor.motor_asyncio import AsyncIOMotorClient
-import os
-from dotenv import load_dotenv
-from urllib.parse import quote_plus
+"""
+MongoDB store (Motor async driver).
 
-load_dotenv()
+Used when MONGODB_URI is configured. All plant reads/updates are scoped by
+user_id so per-user isolation is enforced at the data layer, not the client.
+"""
 
-MONGODB_URI = os.getenv("MONGODB_URI")
-DB_NAME = os.getenv("MONGODB_DB", "plantcare")
+import uuid
+from datetime import datetime, timezone
+from typing import Dict, List, Optional
 
-# Lazy initialization - connection happens on first use
-_client = None
-_db = None
+from app.db.store import BaseStore, UserRecord
+from app.schemas.collection import PlantRecord, WateringEvent
 
-def _get_client():
-    """Get or create MongoDB client (lazy initialization)."""
-    global _client
-    if _client is None:
-        try:
-            if not MONGODB_URI:
-                raise ValueError("MONGODB_URI not configured in .env")
-            _client = AsyncIOMotorClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
-        except Exception as e:
-            print(f"⚠ MongoDB initialization warning: {e}")
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class MongoStore(BaseStore):
+    mode = "mongodb"
+
+    def __init__(self, uri: str, db_name: str, timeout_ms: int = 5000) -> None:
+        from motor.motor_asyncio import AsyncIOMotorClient
+
+        self._client = AsyncIOMotorClient(uri, serverSelectionTimeoutMS=timeout_ms)
+        self._db = self._client[db_name]
+        self._users = self._db["users"]
+        self._plants = self._db["plants"]
+
+    # --- users ---
+    async def create_user(self, email: str, username: str, password_hash: str) -> UserRecord:
+        key = email.lower()
+        existing = await self._users.find_one({"email": key})
+        if existing:
+            raise ValueError("An account with this email already exists")
+        doc = {
+            "id": uuid.uuid4().hex,
+            "email": key,
+            "username": username,
+            "password_hash": password_hash,
+            "created_at": _now(),
+        }
+        await self._users.insert_one(doc)
+        return UserRecord(doc["id"], doc["email"], doc["username"], doc["password_hash"], doc["created_at"])
+
+    async def get_user_by_email(self, email: str) -> Optional[UserRecord]:
+        doc = await self._users.find_one({"email": email.lower()})
+        if not doc:
             return None
-    return _client
+        return UserRecord(doc["id"], doc["email"], doc["username"], doc["password_hash"], doc.get("created_at"))
 
-def _get_db():
-    """Get database instance."""
-    global _db
-    if _db is None:
-        client = _get_client()
-        if client is not None:
-            _db = client[DB_NAME]
-    return _db
+    async def get_user_by_id(self, user_id: str) -> Optional[UserRecord]:
+        doc = await self._users.find_one({"id": user_id})
+        if not doc:
+            return None
+        return UserRecord(doc["id"], doc["email"], doc["username"], doc["password_hash"], doc.get("created_at"))
 
-# Collections - created on demand
-plant_guides_collection = None
-users_collection = None
-plants_collection = None
-notifications_collection = None
+    async def update_user(self, user_id: str, username: Optional[str], email: Optional[str]) -> Optional[UserRecord]:
+        updates: Dict = {}
+        if username:
+            updates["username"] = username
+        if email:
+            key = email.lower()
+            existing = await self._users.find_one({"email": key})
+            if existing and existing["id"] != user_id:
+                raise ValueError("An account with this email already exists")
+            updates["email"] = key
+        if updates:
+            await self._users.update_one({"id": user_id}, {"$set": updates})
+        return await self.get_user_by_id(user_id)
 
-def _init_collections():
-    """Initialize collection references."""
-    global plant_guides_collection, users_collection, plants_collection, notifications_collection
-    db = _get_db()
-    if db is not None:
-        plant_guides_collection = db["plant_guides"]
-        users_collection = db["users"]
-        plants_collection = db["plants"]
-        notifications_collection = db["notifications"]
-        return True
-    return False
+    # --- plants ---
+    async def create_plant(self, plant: PlantRecord) -> PlantRecord:
+        doc = plant.model_dump(mode="json")
+        await self._plants.insert_one(dict(doc))
+        return plant
 
-# Initialize on first import
-_init_collections()
+    async def list_plants(self, user_id: str) -> List[PlantRecord]:
+        cursor = self._plants.find({"user_id": user_id})
+        return [PlantRecord(**doc) async for doc in cursor]
 
-# Provide access functions for dynamic initialization
-async def get_collections():
-    """Get all collections, initializing if needed."""
-    global plant_guides_collection, users_collection, plants_collection, notifications_collection
-    _init_collections()
-    return {
-        "plant_guides": plant_guides_collection,
-        "users": users_collection,
-        "plants": plants_collection,
-        "notifications": notifications_collection
-    }
+    async def get_plant(self, user_id: str, plant_id: str) -> Optional[PlantRecord]:
+        doc = await self._plants.find_one({"id": plant_id, "user_id": user_id})
+        return PlantRecord(**doc) if doc else None
+
+    async def update_plant(self, user_id: str, plant_id: str, plant: PlantRecord) -> Optional[PlantRecord]:
+        plant.updated_at = _now()
+        result = await self._plants.replace_one(
+            {"id": plant_id, "user_id": user_id}, plant.model_dump(mode="json")
+        )
+        return plant if result.matched_count else None
+
+    async def delete_plant(self, user_id: str, plant_id: str) -> bool:
+        result = await self._plants.delete_one({"id": plant_id, "user_id": user_id})
+        return result.deleted_count > 0
+
+    async def add_watering(self, user_id: str, plant_id: str, event: WateringEvent) -> Optional[PlantRecord]:
+        plant = await self.get_plant(user_id, plant_id)
+        if not plant:
+            return None
+        plant.watering_history.append(event)
+        plant.last_watered_at = event.watered_at
+        plant.next_watering_at = plant.compute_next_watering()
+        plant.updated_at = _now()
+        await self._plants.replace_one(
+            {"id": plant_id, "user_id": user_id}, plant.model_dump(mode="json")
+        )
+        return plant
+
+    async def ping(self) -> bool:
+        try:
+            await self._client.admin.command("ping")
+            return True
+        except Exception:
+            return False
+
+    async def close(self) -> None:
+        self._client.close()
+
+    async def ensure_indexes(self) -> None:
+        """Create useful indexes (call from init script or startup)."""
+        await self._users.create_index("email", unique=True)
+        await self._plants.create_index("user_id")
+        await self._plants.create_index([("user_id", 1), ("id", 1)])

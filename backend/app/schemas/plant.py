@@ -3,9 +3,8 @@ Pydantic schemas for request and response validation.
 These models ensure type safety and automatic validation.
 """
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import List, Dict, Any, Optional
-from app.db.mongodb import plant_guides_collection
 from datetime import datetime
 
 
@@ -66,7 +65,8 @@ class PlantInputData(BaseModel):
         description="Gardener's experience level (e.g., 'Beginner', 'Intermediate', 'Advanced')"
     )
     
-    @validator('plant_name', 'plant_type', 'climate', 'soil_type', 'watering_frequency', 'experience_level')
+    @field_validator('plant_name', 'plant_type', 'climate', 'soil_type', 'watering_frequency', 'experience_level')
+    @classmethod
     def trim_whitespace(cls, v):
         """Remove leading and trailing whitespace from string fields."""
         return v.strip() if isinstance(v, str) else v
@@ -137,29 +137,35 @@ class GeminiResponse(BaseModel):
     additional_tips: List[str]
 
 
-class NotebookLMResponse(BaseModel):
+class VisualGuideResponse(BaseModel):
     """
-    Schema for NotebookLM response.
-    
-    Contains visual guide information.
+    Visual guide download information (generated PPTX).
+
+    file_url is a path on this API (e.g. /api/v1/files/<name>.pptx).
+    Clients must resolve it against the API origin — the guide route also
+    returns an absolute URL in metadata for convenience.
     """
-    
+
     status: str
     file_url: Optional[str] = None
     file_type: Optional[str] = None
     message: str
 
 
+# Backwards-compatible alias (old name referenced a never-integrated API).
+NotebookLMResponse = VisualGuideResponse
+
+
 class PlantGuideResponse(BaseModel):
     """
-    Final API response combining Gemini and NotebookLM outputs.
-    
+    Final API response combining AI guidance and the generated visual guide.
+
     This is the complete response sent to the frontend.
     """
-    
+
     success: bool
     plant_care_guidance: GeminiResponse
-    visual_guide: NotebookLMResponse
+    visual_guide: Optional[VisualGuideResponse] = None
     metadata: Dict[str, Any]
     
     class Config:
