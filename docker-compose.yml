@@ -1,0 +1,49 @@
+# PlantCare — full stack: FastAPI backend + nginx-served web app
+#
+# Usage:
+#   docker-compose up --build            # memory store (no external deps)
+#   docker-compose --profile mongo up --build  # with MongoDB
+#
+# Secrets (GEMINI_API_KEY, JWT_SECRET, MONGODB_URI, …) are read from
+# backend/.env — see backend/.env.example. Never commit real values.
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      # In-container defaults; anything not set falls through to backend/.env
+      ALLOW_MOCK_AI: ${ALLOW_MOCK_AI:-false}
+      DEBUG: ${DEBUG:-false}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://localhost:3000,http://localhost}
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ppt_files:/app/generated_files
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Bake the API URL the browser should call (host-mapped backend port)
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  mongo:
+    image: docker.io/library/mongo:7
+    profiles: ["mongo"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+volumes:
+  ppt_files:
+  mongo_data:
